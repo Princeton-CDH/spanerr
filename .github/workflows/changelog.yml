@@ -8,7 +8,8 @@ on:
     types: [opened, synchronize, reopened, labeled, unlabeled]
     branches: [develop, main]
 
-permissions: {}
+permissions:
+  contents: read
 
 concurrency:
   # Cancel existing job(s) for workflow when a new one is queued
