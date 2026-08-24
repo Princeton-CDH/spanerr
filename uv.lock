@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.12"
 
 [options]
-exclude-newer = "2026-08-14T19:10:21.545537Z"
+exclude-newer = "2026-08-17T17:10:48.979226Z"
 exclude-newer-span = "P1W"
 
 [[package]]
@@ -336,7 +336,7 @@ wheels = [
 [[package]]
 name = "spanerr"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 
 [package.optional-dependencies]
 dev = [
