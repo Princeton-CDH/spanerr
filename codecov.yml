@@ -5,7 +5,7 @@ coverage:
       core:  # custom target for core package
         target: 90%
         paths:
-          - "src/viapy/"
+          - "src/spanerr/"
       tests:  # 100% coverage for test files
         target: 100%
         paths:
