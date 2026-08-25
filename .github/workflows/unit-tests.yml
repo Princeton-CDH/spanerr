@@ -45,14 +45,14 @@ jobs:
         run: uv sync --resolution ${{ matrix.resolution }} --group test
 
       - name: Run pytest
-        run: uv run pytest --cov=spanerr --cov=tests --cov-report=xml --cov-report=term
+        # NOTE: Code coverage disabled until repo goes public
+        run: uv run pytest  #--cov=spanerr --cov=tests --cov-report=xml --cov-report=term
 
-      # Only upload test coverage for Python 3.12 with highest resolution
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f  # v7.0.0
-        if: matrix.python == '3.12' && matrix.resolution == 'highest'
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          slug: Princeton-CDH/spanerr
-          files: ./coverage.xml
-          fail_ci_if_error: false
+    # Only upload test coverage for Python 3.12 with highest resolution
+    #- name: Upload coverage reports to Codecov
+    #  uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f  # v7.0.0
+    #  if: matrix.python == '3.12' && matrix.resolution == 'highest'
+    #  with:
+    #    token: ${{ secrets.CODECOV_TOKEN }}
+    #    files: ./coverage.xml
+    #    fail_ci_if_error: false
