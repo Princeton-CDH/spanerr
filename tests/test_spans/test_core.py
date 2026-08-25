@@ -225,26 +225,40 @@ class TestDocSpans:
         c = Span(6, 8)  # adjacent
         d = Span(2, 4)  # overlapping
         e = Span(4, 5)  # nested
+        f = Span(3, 6, "l1")  # nested but different label
+        g = Span(3, 10, "l2")  # overlapping but different label
 
         # No spans
         assert DocSpans("", []).aggregate() == DocSpans("", [])
         # No overlap
         assert DocSpans("", [a, b]).aggregate() == DocSpans("", [a, b])
         assert DocSpans("", [a, c]).aggregate() == DocSpans("", [a, c])
+        assert DocSpans("", [a, f]).aggregate() == DocSpans("", [a, f])
         ## With concat flag set
         assert DocSpans("", [a, b]).aggregate(concat=True) == DocSpans("", [a, b])
         assert DocSpans("", [a, c]).aggregate(concat=True) == DocSpans("", [Span(3, 8)])
+        assert DocSpans("", [a, f]).aggregate(concat=True) == DocSpans("", [a, f])
         # With overlap
         assert DocSpans("", [a, d]).aggregate() == DocSpans("", [Span(2, 6)])
         assert DocSpans("", [a, e]).aggregate() == DocSpans("", [a])
         assert DocSpans("", [a, b, d]).aggregate() == DocSpans("", [b, Span(2, 6)])
-        assert DocSpans("", [a, b, c, d, e]).aggregate() == DocSpans(
-            "", [b, Span(2, 6), c]
+        assert DocSpans("", [a, b, c, d, e, f, g]).aggregate() == DocSpans(
+            "", [b, Span(2, 6), c, f, g]
         )
         ## With concat flag set
         assert DocSpans("", [a, b, d]).aggregate(concat=True) == DocSpans(
             "", [Span(1, 6)]
         )
-        assert DocSpans("", [a, b, c, d, e]).aggregate(concat=True) == DocSpans(
-            "", [Span(1, 8)]
+        assert DocSpans("", [a, b, c, d, e, f, g]).aggregate(concat=True) == DocSpans(
+            "", [Span(1, 8), f, g]
+        )
+
+    @patch.object(DocSpans, "aggregate", autospec=True, return_value="aggregated")
+    def test_binarize(self, mock_aggregate):
+        spans = [Span(3, 6, "a"), Span(1, 2, "b"), Span(6, 8, "b"), Span(2, 4, "d")]
+        # Default
+        x = DocSpans("i", spans)
+        assert x.binarize(concat="concat") == "aggregated"
+        mock_aggregate.assert_called_once_with(
+            DocSpans("i", [s.binarize() for s in spans]), concat="concat"
         )

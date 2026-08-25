@@ -89,10 +89,10 @@ class Span:
 
     def binarize(self) -> Self:
         """
-        Returns the "binarized" version of this span (i.e., its label set to
-        the empty string)
+        Returns the "binarized" version of this span (i.e., sets label to default)
         """
-        return self.__class__(self.start, self.end, "")
+        default_label = self.__class__.label
+        return self.__class__(self.start, self.end, default_label)
 
     def merge(self, other: Self) -> Self:
         """
@@ -141,13 +141,32 @@ class DocSpans:
         Aggregate spans by merging all overlapping spans with the same label.
         Optionally, can also merge adjacent spans.
         """
-        new_spans = [self.spans[0]] if self.spans else []
-        for span in self.spans[1:]:
-            prev = new_spans[-1]
-            if prev.label == span.label and (
-                prev.has_overlap(span) or (concat and prev.is_adjacent(span))
-            ):
-                new_spans[-1] = prev.merge(span)
+        new_spans = []
+        last_label_index = {}  # track index of last added span with a given label
+        for span in self.spans:
+            # Check if current span's label has been seen previously
+            if span.label in last_label_index:
+                prev_index = last_label_index[span.label]
+                prev = new_spans[prev_index]
+                # Check if span can be merged with previous span with same label
+                if prev.has_overlap(span) or (concat and prev.is_adjacent(span)):
+                    # Replace previous span with its merged version
+                    new_spans[prev_index] = prev.merge(span)
+                else:
+                    # Cannot merge so add span and update index
+                    new_spans.append(span)
+                    last_label_index[span.label] = len(new_spans) - 1
             else:
+                # Unseen label, so update label index and append span
                 new_spans.append(span)
+                last_label_index[span.label] = len(new_spans) - 1
         return self.__class__(self.doc_id, new_spans)
+
+    def binarize(self, concat: bool = False) -> Self:
+        """
+        Returns a "binarized" version of this DocSpans in which its spans are
+        binarized with any overlapping spans merged. Optionally, adjacent spans
+        can also be merged.
+        """
+        binary_spans = [s.binarize() for s in self.spans]
+        return self.__class__(self.doc_id, binary_spans).aggregate(concat=concat)
