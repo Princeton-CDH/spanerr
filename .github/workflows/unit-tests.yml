@@ -53,5 +53,6 @@ jobs:
         if: matrix.python == '3.12' && matrix.resolution == 'highest'
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          slug: Princeton-CDH/spanerr
           files: ./coverage.xml
           fail_ci_if_error: false
