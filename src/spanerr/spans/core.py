@@ -3,12 +3,13 @@ Custom data types
 """
 
 from dataclasses import dataclass
+from typing import Self
 
 
-@dataclass
+@dataclass(order=True, frozen=True)
 class Span:
     """
-    Span object representing a Pythonic "closed open" interval
+    Span object representing a Pythonic "closed open" interval.
     """
 
     #: start index
@@ -16,7 +17,7 @@ class Span:
     #: end index
     end: int
     #: label for the span
-    label: str
+    label: str = ""
 
     def __post_init__(self):
         if self.end <= self.start:
@@ -25,39 +26,54 @@ class Span:
     def __len__(self) -> int:
         return self.end - self.start
 
-    def has_overlap(self, other: "Span", ignore_label: bool = False) -> bool:
+    @classmethod
+    def from_dict(cls, span_dict: dict):
+        """
+        Create a Span object from a dict representing a span.
+
+        The input dict is expected to have the following fields:
+            - start (int): The starting index of the span
+            - end (int): The ending index of the span
+            - label (str, optional): The span's label
+        """
+        if "start" not in span_dict or "end" not in span_dict:
+            missing = sorted({"start", "end"} - span_dict.keys(), reverse=True)
+            raise ValueError(f"Missing required fields: {', '.join(missing)}")
+        return Span(span_dict["start"], span_dict["end"], span_dict.get("label", ""))
+
+    def has_overlap(self, other: Self) -> bool:
         """
         Returns whether this span overlaps with the other span.
-        Optionally, span labels can be ignored.
         """
-        if ignore_label or self.label == other.label:
-            return self.start < other.end and other.start < self.end
-        return False
+        return self.start < other.end and other.start < self.end
 
-    def is_exact_match(self, other: "Span", ignore_label: bool = False) -> bool:
+    def is_adjacent(self, other: Self) -> bool:
         """
-        Checks if the other span is an exact match. Optionally, ignores
-        span labels.
+        Returns whether this span is adjacent with the other span.
         """
-        if self.start == other.start and self.end == other.end:
-            return ignore_label or self.label == other.label
-        else:
-            return False
+        return self.end == other.start or self.start == other.end
 
-    def overlap_length(self, other: "Span", ignore_label: bool = False) -> int:
+    def overlap_length(self, other: Self) -> int:
         """
         Returns the length of overlap between this span and the other span.
-        Optionally, span labels can be ignored for this calculation.
         """
-        if not self.has_overlap(other, ignore_label=ignore_label):
+        if not self.has_overlap(other):
             return 0
-        else:
-            return min(self.end, other.end) - max(self.start, other.start)
+        return min(self.end, other.end) - max(self.start, other.start)
 
-    def overlap_factor(self, other: "Span", ignore_label: bool = False) -> float:
+    def jaccard(self, other: Self) -> float:
         """
-        Returns the overlap factor with the other span. Optionally, span
-        labels can be ignored for this calculation.
+        Returns the jaccard index between this span and the other span.
+        """
+        if not self.has_overlap(other):
+            return 0
+        intersection = self.overlap_length(other)
+        union = max(self.end, other.end) - min(self.start, other.start)
+        return intersection / union
+
+    def overlap_factor(self, other: Self) -> float:
+        """
+        Returns the overlap factor with the other span.
 
         The overlap factor is defined as follows:
 
@@ -68,5 +84,70 @@ class Span:
         So, the overlap factor has a range between 0 and 1 with higher values
         corresponding to a higher degree of overlap.
         """
-        overlap = self.overlap_length(other, ignore_label=ignore_label)
+        overlap = self.overlap_length(other)
         return overlap / max(len(self), len(other))
+
+    def binarize(self) -> Self:
+        """
+        Returns the "binarized" version of this span (i.e., its label set to
+        the empty string)
+        """
+        return self.__class__(self.start, self.end, "")
+
+    def merge(self, other: Self) -> Self:
+        """
+        Returns the merged span of this span with the the other.
+        Raises ValueError for spans with different labels, or without overlap or adjacency
+        """
+        if self.label != other.label:
+            raise ValueError("Cannot merge spans with different labels")
+        if not self.has_overlap(other) and not self.is_adjacent(other):
+            raise ValueError("Cannot merge spans without overlap or adjacency")
+        min_start = min(self.start, other.start)
+        max_end = max(self.end, other.end)
+        return self.__class__(min_start, max_end, self.label)
+
+
+@dataclass(frozen=True)
+class DocSpans:
+    """
+    Document-level span annotations object
+    """
+
+    doc_id: str  # Should this have a default
+    spans: list[Span]
+
+    def __post_init__(self):
+        self.spans.sort()  # ensure spans are sorted
+
+    @classmethod
+    def from_dict(cls, doc_dict: dict) -> Self:
+        """
+        Load DocSpans from a dict representing an annotated document.
+
+        The input dict is expected to have the following fields:
+            - spans (list[dict]): Document's span annotations as a list of dicts
+                                  compatible with `Span.from_dict`
+            - doc_id (str, optional): Document ID (defaults to empty string)
+        """
+        if "spans" not in doc_dict:
+            raise ValueError("Missing required field: spans")
+        doc_id = doc_dict.get("doc_id", "")
+        spans = [Span.from_dict(s) for s in doc_dict["spans"]]
+        return cls(doc_id, spans)
+
+    def aggregate(self, concat: bool = False) -> Self:
+        """
+        Aggregate spans by merging all overlapping spans with the same label.
+        Optionally, can also merge adjacent spans.
+        """
+        new_spans = [self.spans[0]] if self.spans else []
+        for span in self.spans[1:]:
+            prev = new_spans[-1]
+            if prev.label == span.label and (
+                prev.has_overlap(span) or (concat and prev.is_adjacent(span))
+            ):
+                new_spans[-1] = prev.merge(span)
+            else:
+                new_spans.append(span)
+        return self.__class__(self.doc_id, new_spans)
