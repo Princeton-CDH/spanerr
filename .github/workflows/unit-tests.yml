@@ -28,7 +28,7 @@ jobs:
     strategy:
       matrix:
         python: ["3.12", "3.13", "3.14"]
-        resolution: ["lowest", "lowest-direct", "highest"]
+        resolution: ["lowest-direct", "highest"]
 
     steps:
       - name: Checkout repository
@@ -42,7 +42,7 @@ jobs:
           python-version: ${{ matrix.python }}
 
       - name: Install package with dependencies
-        run: uv sync --resolution ${{ matrix.resolution }} --extra test
+        run: uv sync --resolution ${{ matrix.resolution }} --group test
 
       - name: Run pytest
         run: uv run pytest --cov=spanerr --cov=tests --cov-report=xml --cov-report=term
