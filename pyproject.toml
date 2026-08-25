@@ -1,3 +1,7 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "spanerr"
 version = "0.1.0"
@@ -22,21 +26,17 @@ classifiers = [
 requires-python = ">=3.12"
 dependencies = []
 
-[project.optional-dependencies]
-test = [
-    "pytest>=9.1.1",
-    "pytest-cov>=7.1.0",
-    "coverage[toml]",
-]
-dev = [
-    "pre-commit>=4.6.2",
-    "ruff>=0.16.3",
-    "spanerr[test]",
-]
-
 [dependency-groups]
 dev = [
-    "spanerr[dev]",
+    { include-group = "test" },
+    "pre-commit>=4.6.2",
+    "ruff>=0.16.3",
+    "ty>=0.0.72",
+]
+test = [
+    "coverage[toml]>=7.15.4",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
 ]
 
 [tool.uv]
@@ -86,3 +86,6 @@ ignore = []
 number = true
 wrap = "keep"
 end_of_line = "lf"
+
+[tool.ty.src]
+include = ["src/"]  # only type check source code
