@@ -2,7 +2,7 @@ from unittest.mock import call, patch
 
 import pytest
 
-from spanerr.spans.core import DocSpans, Span
+from spanerr.core import DocSpans, Span
 
 
 class TestSpan:

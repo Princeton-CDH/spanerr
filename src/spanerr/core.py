@@ -1,5 +1,5 @@
 """
-Core span data types
+Core data types
 """
 
 from dataclasses import dataclass
