@@ -2,7 +2,13 @@
 Core data types
 """
 
+from collections import defaultdict
+from collections.abc import Callable, Iterable
+from copy import deepcopy
 from dataclasses import dataclass
+from functools import cached_property
+from itertools import chain
+from types import MappingProxyType
 from typing import Self
 
 
@@ -108,17 +114,18 @@ class Span:
         return self.__class__(min_start, max_end, self.label)
 
 
-@dataclass(frozen=True)
+@dataclass(init=False)
 class DocSpans:
     """
     Document-level span annotations object
     """
 
-    doc_id: str  # Should this have a default
-    spans: list[Span]
+    doc_id: str
+    _spans: list[Span]  # meant to be immutable
 
-    def __post_init__(self):
-        self.spans.sort()  # ensure spans are sorted
+    def __init__(self, doc_id: str, spans: Iterable[Span]):
+        self.doc_id = doc_id
+        self._spans = sorted(spans)  # ensure spans are a sorted copy of input
 
     @classmethod
     def from_dict(cls, doc_dict: dict) -> Self:
@@ -136,6 +143,13 @@ class DocSpans:
         spans = [Span.from_dict(s) for s in doc_dict["spans"]]
         return cls(doc_id, spans)
 
+    @property
+    def spans(self) -> list[Span]:
+        """
+        Returns copy of span annotations
+        """
+        return self._spans.copy()
+
     def aggregate(self, concat: bool = False) -> Self:
         """
         Aggregate spans by merging all overlapping spans with the same label.
@@ -143,7 +157,7 @@ class DocSpans:
         """
         new_spans = []
         last_label_index = {}  # track index of last added span with a given label
-        for span in self.spans:
+        for span in self._spans:
             # Check if current span's label has been seen previously
             if span.label in last_label_index:
                 prev_index = last_label_index[span.label]
@@ -168,5 +182,54 @@ class DocSpans:
         binarized with any overlapping spans merged. Optionally, adjacent spans
         can also be merged.
         """
-        binary_spans = [s.binarize() for s in self.spans]
+        binary_spans = [s.binarize() for s in self._spans]
         return self.__class__(self.doc_id, binary_spans).aggregate(concat=concat)
+
+
+@dataclass
+class SpanAlignment:
+    """
+    Alignment object for two sets of span annotations over a shared document.
+    """
+
+    ref: DocSpans
+    sys: DocSpans
+    _mapping: dict[Span, list[Span]]  # meant to be immutable
+
+    def __post_init__(self):
+        # Check doc_id
+        if self.ref.doc_id != self.sys.doc_id:
+            raise ValueError("DocSpans must have the same doc_id")
+        # Validate mapping
+        ## Check all reference spans in mapping are valid
+        if not set(self._mapping) <= set(self.ref.spans):
+            raise ValueError("Mapping contains invalid reference spans")
+        ## Check all system spans in mapping are valid
+        mapping_sys_spans = set(chain.from_iterable(self._mapping.values()))
+        if not mapping_sys_spans <= set(self.sys.spans):
+            raise ValueError("Mapping contains invalid system spans")
+        # Make deep copy to avoid indirect modification
+        self._mapping = deepcopy(self._mapping)
+
+    @cached_property
+    def mapping(self) -> MappingProxyType[Span, list[Span]]:
+        """
+        Returns read-only view of span mapping (reference --> system)
+        """
+        return MappingProxyType(self._mapping)
+
+    @cached_property
+    def reverse_mapping(self) -> MappingProxyType[Span, list[Span]]:
+        """
+        Returns a read-only view of the reverse span mapping (system --> reference)
+        """
+        rev_map = defaultdict(list)
+        for ref_span, sys_spans in self._mapping.items():
+            for sys_span in sys_spans:
+                rev_map[sys_span].append(ref_span)
+        return MappingProxyType(rev_map)
+
+
+# Additional function types
+CheckSpanPair = Callable[[Span, Span], bool]
+ScoreSpanPair = Callable[[Span, Span], float]
