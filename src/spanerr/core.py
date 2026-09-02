@@ -195,17 +195,18 @@ class SpanAlignment:
 
     ref: DocSpans
     sys: DocSpans
-    _mapping: dict[Span, list[Span]]  # meant to be immutable
+    # Meant to be immutable (ideally would use 3.15's frozendict)
+    _mapping: dict[Span, list[Span]]
 
     def __post_init__(self):
         # Check doc_id
         if self.ref.doc_id != self.sys.doc_id:
             raise ValueError("DocSpans must have the same doc_id")
         # Validate mapping
-        ## Check all mapping keys are present in list of reference spans 
+        ## Check all mapping keys are in present in ref's spans list
         if not set(self._mapping) <= set(self.ref.spans):
             raise ValueError("Mapping contains invalid reference spans")
-        ## Check all system spans in mapping are present in system spans list
+        ## Check all system spans in mapping are present in sys's spans list
         mapping_sys_spans = set(chain.from_iterable(self._mapping.values()))
         if not mapping_sys_spans <= set(self.sys.spans):
             raise ValueError("Mapping contains invalid system spans")
@@ -215,14 +216,18 @@ class SpanAlignment:
     @cached_property
     def mapping(self) -> MappingProxyType[Span, list[Span]]:
         """
-        Returns read-only view of span mapping (reference --> system)
+        Returns read-only view of span mapping (reference --> system).
+        This view acts like a dict but it cannot be modified. This ensures that
+        the alignment's mapping remains unchanged.
         """
         return MappingProxyType(self._mapping)
 
     @cached_property
     def reverse_mapping(self) -> MappingProxyType[Span, list[Span]]:
         """
-        Returns a read-only view of the reverse span mapping (system --> reference)
+        Returns a read-only view of the reverse span mapping (system --> reference).
+        This view acts like a dict but it cannot be modified. This ensures that
+        this property can be cached.
         """
         rev_map = defaultdict(list)
         for ref_span, sys_spans in self._mapping.items():

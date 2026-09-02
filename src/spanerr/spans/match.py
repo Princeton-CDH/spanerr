@@ -11,7 +11,7 @@ def exact_match(span_a: Span, span_b: Span, ignore_label: bool = False) -> bool:
     Corresponds to strict and exact match in SemEval'13.
     """
     if ignore_label:
-        return span_a.start == span_b.start and span_a.end == span_b.end
+        return span_a.binarize() == span_b.binarize()
     else:
         return span_a == span_b
 

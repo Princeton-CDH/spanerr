@@ -1,5 +1,12 @@
 """
 Library of methods for aligning document-level span annotations
+
+These methods may require two function inputs:
+    * CheckSpanPair: A predicate that takes two spans as input. It's used to
+      determine span matches. Example functions are provided in the
+      `spanerr.spans.match` library.
+    * ScoreSpanPair: A function that takes two spans as input and returns a
+      numeric score (float). It's used to measure the quality of a match.
 """
 
 from spanerr.core import (
@@ -26,16 +33,14 @@ def select_first_match(
     align_map = {}
     sys_span_pool = dict.fromkeys(sys.spans)
     for ref_span in ref.spans:
-        found_match = False
         for sys_span in sys_span_pool:
             if is_match(ref_span, sys_span):
-                found_match = True
+                # Add match
+                align_map[ref_span] = [sys_span]
+                if exclusive:
+                    # Remove system span from candidate pool
+                    del sys_span_pool[sys_span]
                 break
-        if found_match:
-            align_map[ref_span] = [sys_span]
-            if exclusive:
-                # Remove system span from candidate pool
-                del sys_span_pool[sys_span]
     return SpanAlignment(ref, sys, align_map)
 
 
