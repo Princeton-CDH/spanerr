@@ -205,7 +205,7 @@ class SpanAlignment:
         ## Check all mapping keys are present in list of reference spans 
         if not set(self._mapping) <= set(self.ref.spans):
             raise ValueError("Mapping contains invalid reference spans")
-        ## Check all system spans in mapping are valid
+        ## Check all system spans in mapping are present in system spans list
         mapping_sys_spans = set(chain.from_iterable(self._mapping.values()))
         if not mapping_sys_spans <= set(self.sys.spans):
             raise ValueError("Mapping contains invalid system spans")
