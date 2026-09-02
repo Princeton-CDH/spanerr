@@ -202,7 +202,7 @@ class SpanAlignment:
         if self.ref.doc_id != self.sys.doc_id:
             raise ValueError("DocSpans must have the same doc_id")
         # Validate mapping
-        ## Check all reference spans in mapping are valid
+        ## Check all mapping keys are present in list of reference spans 
         if not set(self._mapping) <= set(self.ref.spans):
             raise ValueError("Mapping contains invalid reference spans")
         ## Check all system spans in mapping are valid
