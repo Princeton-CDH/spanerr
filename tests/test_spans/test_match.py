@@ -1,3 +1,5 @@
+import pytest
+
 from spanerr.core import Span
 from spanerr.spans.match import (
     exact_match,
@@ -7,58 +9,83 @@ from spanerr.spans.match import (
 )
 
 
-def test_exact_match():
+@pytest.mark.parametrize(
+    "span_a,span_b,expected_default,expected_flag",
+    [
+        (Span(2, 4, "a"), Span(2, 4, "a"), True, True),
+        (Span(2, 4, "a"), Span(2, 4, "b"), False, True),
+        (Span(1, 4), Span(2, 3), False, False),
+        (Span(1, 4), Span(2, 3, "o"), False, False),
+        (Span(1, 3, "i"), Span(3, 5, "i"), False, False),
+        (Span(1, 3, "i"), Span(3, 5, "j"), False, False),
+    ],
+)
+def test_exact_match(span_a, span_b, expected_default, expected_flag):
     # Default: Label sensitive
-    assert exact_match(Span(2, 4, "a"), Span(2, 4, "a"))
-    assert not exact_match(Span(2, 4, "a"), Span(2, 4, "b"))
-    assert not exact_match(Span(1, 4), Span(2, 3))
-    assert not exact_match(Span(1, 3, "i"), Span(3, 5, "i"))
+    assert exact_match(span_a, span_b) == expected_default
     # Label insensitive
-    assert exact_match(Span(2, 4, "a"), Span(2, 4, "b"), ignore_label=True)
-    assert not exact_match(Span(1, 4), Span(2, 3, "o"), ignore_label=True)
-    assert not exact_match(Span(1, 3, "i"), Span(3, 5, "j"), ignore_label=True)
+    assert exact_match(span_a, span_b, ignore_label=True) == expected_flag
 
 
-def test_partial_overlap():
+@pytest.mark.parametrize(
+    "span_a,span_b,expected_default,expected_flag",
+    [
+        (Span(2, 4, "a"), Span(2, 4, "a"), True, True),
+        (Span(2, 4, "a"), Span(2, 4, "b"), False, True),
+        (Span(1, 4), Span(2, 3), True, True),
+        (Span(1, 4), Span(2, 3, "o"), False, True),
+        (Span(1, 3, "i"), Span(3, 5, "i"), False, False),
+        (Span(1, 3, "i"), Span(3, 5, "j"), False, False),
+    ],
+)
+def test_partial_overlap(span_a, span_b, expected_default, expected_flag):
     # Default: Label sensitive
-    assert partial_overlap(Span(2, 4, "a"), Span(2, 4, "a"))
-    assert not partial_overlap(Span(1, 3, "i"), Span(3, 5, "i"))
-    assert partial_overlap(Span(1, 4), Span(2, 3))
-    assert not partial_overlap(Span(0, 5, "a"), Span(2, 10, "b"))
+    assert partial_overlap(span_a, span_b) == expected_default
     # Label insensitive
-    assert partial_overlap(Span(2, 4, "a"), Span(2, 4, "b"), ignore_label=True)
-    assert not partial_overlap(Span(1, 3, "i"), Span(3, 5, "j"), ignore_label=True)
-    assert partial_overlap(Span(0, 5, "a"), Span(2, 10, "b"), ignore_label=True)
+    assert partial_overlap(span_a, span_b, ignore_label=True) == expected_flag
 
 
-def test_min_overlap_length():
+@pytest.mark.parametrize(
+    "span_a,span_b,min_val,expected_default,expected_flag",
+    [
+        (Span(2, 4, "a"), Span(2, 4, "a"), 2, True, True),
+        (Span(2, 4, "a"), Span(2, 4, "b"), 2, False, True),
+        (Span(2, 4, "a"), Span(2, 4, "a"), 4, False, False),
+        (Span(2, 4, "a"), Span(2, 4, "b"), 4, False, False),
+        (Span(1, 4), Span(3, 5), 1, True, True),
+        (Span(1, 4), Span(3, 5, "o"), 1, False, True),
+        (Span(1, 4), Span(3, 5), 10, False, False),
+        (Span(1, 4), Span(3, 5, "o"), 10, False, False),
+        (Span(0, 2), Span(2, 4), 0, True, True),
+        (Span(0, 2), Span(2, 4, "o"), 0, False, True),
+    ],
+)
+def test_min_overlap_length(span_a, span_b, min_val, expected_default, expected_flag):
     # Label sensitive
-    assert min_overlap_length(Span(2, 4, "a"), Span(2, 4, "a"), 2)
-    assert not min_overlap_length(Span(2, 4, "a"), Span(2, 4, "b"), 2)
-    assert not min_overlap_length(Span(2, 4, "a"), Span(2, 4, "a"), 4)
-    assert min_overlap_length(Span(1, 4), Span(3, 5), 1)
-    assert not min_overlap_length(Span(1, 4), Span(3, 5), 10)
-    assert min_overlap_length(Span(0, 2), Span(2, 4), 0)
-    assert not min_overlap_length(Span(0, 2), Span(2, 4, "o"), 0)
+    assert min_overlap_length(span_a, span_b, min_val) == expected_default
     # Label insensitive
-    assert min_overlap_length(Span(2, 4, "a"), Span(2, 4, "b"), 2, ignore_label=True)
-    assert not min_overlap_length(
-        Span(2, 4, "a"), Span(2, 4, "b"), 4, ignore_label=True
+    assert (
+        min_overlap_length(span_a, span_b, min_val, ignore_label=True) == expected_flag
     )
-    assert min_overlap_length(Span(1, 4), Span(3, 5, "o"), 1, ignore_label=True)
-    assert not min_overlap_length(Span(1, 4), Span(3, 5, "o"), 10, ignore_label=True)
-    assert min_overlap_length(Span(0, 2), Span(2, 4, "o"), 0, ignore_label=True)
 
 
-def test_min_overlap_factor():
+@pytest.mark.parametrize(
+    "span_a,span_b,min_val,expected_default,expected_flag",
+    [
+        (Span(2, 4, "a"), Span(2, 4, "a"), 1, True, True),
+        (Span(2, 4, "a"), Span(2, 4, "b"), 1, False, True),
+        (Span(1, 4), Span(3, 5), 0.25, True, True),
+        (Span(1, 4), Span(3, 5, "o"), 0.25, False, True),
+        (Span(1, 4), Span(3, 5), 0.5, False, False),
+        (Span(1, 4), Span(3, 5, "o"), 0.5, False, False),
+        (Span(0, 2), Span(2, 4), 0, True, True),
+        (Span(0, 2), Span(2, 4, "o"), 0, False, True),
+    ],
+)
+def test_min_overlap_factor(span_a, span_b, min_val, expected_default, expected_flag):
     # Label sensitive
-    assert min_overlap_factor(Span(2, 4, "a"), Span(2, 4, "a"), 1)
-    assert min_overlap_factor(Span(1, 4), Span(3, 5), 0.25)
-    assert not min_overlap_factor(Span(1, 4), Span(3, 5), 0.5)
-    assert min_overlap_factor(Span(0, 2), Span(2, 4), 0)
-    assert not min_overlap_factor(Span(0, 2), Span(2, 4, "o"), 0)
+    assert min_overlap_factor(span_a, span_b, min_val) == expected_default
     # Label insensitive
-    assert min_overlap_factor(Span(2, 4, "a"), Span(2, 4, "b"), 1, ignore_label=True)
-    assert min_overlap_factor(Span(1, 4), Span(3, 5, "o"), 0.25, ignore_label=True)
-    assert not min_overlap_factor(Span(1, 4), Span(3, 5, "o"), 0.5, ignore_label=True)
-    assert min_overlap_factor(Span(0, 2), Span(2, 4, "o"), 0, ignore_label=True)
+    assert (
+        min_overlap_factor(span_a, span_b, min_val, ignore_label=True) == expected_flag
+    )
