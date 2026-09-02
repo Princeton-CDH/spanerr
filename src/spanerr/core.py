@@ -114,7 +114,7 @@ class Span:
         return self.__class__(min_start, max_end, self.label)
 
 
-@dataclass(init=False)
+@dataclass(init=False, frozen=True)
 class DocSpans:
     """
     Document-level span annotations object
@@ -124,8 +124,9 @@ class DocSpans:
     _spans: list[Span]  # meant to be immutable
 
     def __init__(self, doc_id: str, spans: Iterable[Span]):
-        self.doc_id = doc_id
-        self._spans = sorted(spans)  # ensure spans are a sorted copy of input
+        object.__setattr__(self, "doc_id", doc_id)
+        # Ensure spans are a sorted copy of input
+        object.__setattr__(self, "_spans", sorted(spans))
 
     @classmethod
     def from_dict(cls, doc_dict: dict) -> Self:
@@ -186,7 +187,7 @@ class DocSpans:
         return self.__class__(self.doc_id, binary_spans).aggregate(concat=concat)
 
 
-@dataclass
+@dataclass(frozen=True)
 class SpanAlignment:
     """
     Alignment object for two sets of span annotations over a shared document.
@@ -209,7 +210,7 @@ class SpanAlignment:
         if not mapping_sys_spans <= set(self.sys.spans):
             raise ValueError("Mapping contains invalid system spans")
         # Make deep copy to avoid indirect modification
-        self._mapping = deepcopy(self._mapping)
+        object.__setattr__(self, "_mapping", deepcopy(self._mapping))
 
     @cached_property
     def mapping(self) -> MappingProxyType[Span, list[Span]]:
