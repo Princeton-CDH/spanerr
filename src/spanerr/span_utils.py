@@ -5,49 +5,31 @@ Library of methods for comparing spans
 from spanerr.core import Span
 
 
-def exact_match(span_a: Span, span_b: Span, ignore_label: bool = False) -> bool:
+def exact_match(span_a: Span, span_b: Span) -> bool:
     """
-    Test for exact boundary match. By default, must have same label.
-    Corresponds to strict and exact match in SemEval'13.
+    Test for an exact match where there there is an exact boundary match and
+    label match. This corresponds to a strict match in SemEval'13.
     """
-    if ignore_label:
-        return span_a.binarize() == span_b.binarize()
-    else:
-        return span_a == span_b
+    return span_a == span_b
 
 
-def partial_overlap(span_a: Span, span_b: Span, ignore_label: bool = False) -> bool:
+def partial_overlap(span_a: Span, span_b: Span) -> bool:
     """
-    Test for overlapping boundary match. By default, must have same label.
-    Corresponds to type and partial match in SemEval'13.
+    Test for an overlapping boundary match and label match. This corresponds to
+    to a type match in SemEval'13.
     """
-    if ignore_label or span_a.label == span_b.label:
-        return span_a.overlap_length(span_b) > 0
-    else:
-        return False
+    return span_a.label == span_b.label and span_a.overlap_length(span_b) > 0
 
 
-def min_overlap_length(
-    span_a: Span, span_b: Span, min_len: int, ignore_label: bool = False
-) -> bool:
+def min_overlap_length(span_a: Span, span_b: Span, min_len: int) -> bool:
     """
-    Test if spans overlap by at least `min_len` length.
-    By default, must have same label.
+    Test for a label match and an overlap of at least `min_len` length.
     """
-    if ignore_label or span_a.label == span_b.label:
-        return span_a.overlap_length(span_b) >= min_len
-    else:
-        return False
+    return span_a.label == span_b.label and span_a.overlap_length(span_b) >= min_len
 
 
-def min_overlap_factor(
-    span_a: Span, span_b: Span, min_val: float, ignore_label: bool = False
-) -> bool:
+def min_overlap_factor(span_a: Span, span_b: Span, min_val: float) -> bool:
     """
-    Test if spans have an overlap factor of at least  `min_val`.
-    By default, must have same label.
+    Tests for a label match and an overlap factor of at least  `min_val`.
     """
-    if ignore_label or span_a.label == span_b.label:
-        return span_a.overlap_factor(span_b) >= min_val
-    else:
-        return False
+    return span_a.label == span_b.label and span_a.overlap_factor(span_b) >= min_val
