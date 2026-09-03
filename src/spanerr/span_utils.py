@@ -1,5 +1,5 @@
 """
-Library of methods for checking for span-level matches
+Library of methods for comparing spans
 """
 
 from spanerr.core import Span

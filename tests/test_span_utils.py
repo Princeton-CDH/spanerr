@@ -1,7 +1,7 @@
 import pytest
 
 from spanerr.core import Span
-from spanerr.spans.match import (
+from spanerr.span_utils import (
     exact_match,
     min_overlap_factor,
     min_overlap_length,

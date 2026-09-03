@@ -16,7 +16,7 @@ from spanerr.core import (
     Span,
     SpanAlignment,
 )
-from spanerr.spans.match import partial_overlap
+from spanerr.span_utils import partial_overlap
 
 
 def select_first_match(
