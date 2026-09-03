@@ -1,8 +1,9 @@
+from types import MappingProxyType
 from unittest.mock import call, patch
 
 import pytest
 
-from spanerr.spans.core import DocSpans, Span
+from spanerr.core import DocSpans, Span, SpanAlignment
 
 
 class TestSpan:
@@ -186,10 +187,22 @@ class TestDocSpans:
         b = Span(1, 2)
         c = Span(3, 5)
         d = Span(3, 6, "l")
-        # Test post-initialization span sorting
+        # Basic case
+        result = DocSpans("i", [a])
+        assert result.doc_id == "i"
+        assert result.spans == [a]
+        # Test span sorting
         assert DocSpans("i", [a, b]).spans == [b, a]
         assert DocSpans("i", [a, b, c]).spans == [b, c, a]
         assert DocSpans("i", [d, a]).spans == [a, d]
+        # Test spans field is a copy not a reference
+        l = [a, b]
+        d = DocSpans("", l)
+        l.append(c)
+        assert d.spans == [b, a]
+        # Span input can non-list iterables
+        assert DocSpans("i", {a, b}) == DocSpans("i", [a, b])
+        assert DocSpans("i", {a: b, c: d}) == DocSpans("i", [a, c])
 
     def test_from_dict(self):
         # Missing required field
@@ -218,6 +231,15 @@ class TestDocSpans:
         assert DocSpans.from_dict({"spans": span_dicts}) == DocSpans("", spans)
         assert mock_span_from_dict.call_count == 2
         mock_span_from_dict.assert_has_calls([call(s) for s in span_dicts])
+
+    def test_spans(self):
+        # Check that getter returns a copy not a reference
+        d = DocSpans("", [Span(1, 3)])
+        spans = d.spans
+        spans.append(Span(7, 11))
+        assert spans == [Span(1, 3), Span(7, 11)]
+        assert d._spans == [Span(1, 3)]  # check attribute unmodified
+        assert d.spans == [Span(1, 3)]  # check view unmodified
 
     def test_aggregate(self):
         a = Span(3, 6)
@@ -262,3 +284,59 @@ class TestDocSpans:
         mock_aggregate.assert_called_once_with(
             DocSpans("i", [s.binarize() for s in spans]), concat="concat"
         )
+
+
+class TestSpanAlignment:
+    def test_init(self):
+        # Different doc ids
+        with pytest.raises(ValueError, match="DocSpans must have the same doc_id"):
+            SpanAlignment(DocSpans("i", []), DocSpans("j", []), {})
+        # Invalid mapping
+        ref = DocSpans("i", [Span(1, 3), Span(2, 5)])
+        sys = DocSpans("i", [Span(1, 2), Span(3, 6)])
+        ## Bad reference spans
+        err_msg = "Mapping contains invalid reference spans"
+        with pytest.raises(ValueError, match=err_msg):
+            SpanAlignment(
+                ref, sys, {Span(1, 3): [Span(1, 2)], Span(3, 6): [Span(3, 6)]}
+            )
+        ## Bad system spans
+        err_msg = "Mapping contains invalid system spans"
+        with pytest.raises(ValueError, match=err_msg):
+            SpanAlignment(
+                ref, sys, {Span(1, 3): [Span(1, 2)], Span(2, 5): [Span(2, 5)]}
+            )
+        ## Verify mapping is a deep copy
+        mapping = {Span(1, 3): [Span(1, 2)]}
+        a = SpanAlignment(ref, sys, mapping)
+        mapping[Span(2, 5)] = [Span(3, 6)]
+        assert mapping != a
+        assert a._mapping == {Span(1, 3): [Span(1, 2)]}
+
+    def test_mapping(self):
+        ref = DocSpans("", [Span(1, 3)])
+        sys = DocSpans("", [Span(2, 4)])
+        mapping = {Span(1, 3): [Span(2, 4)]}
+        a = SpanAlignment(ref, sys, mapping)
+        # Verify getter returns a view, not the mapping itself
+        assert type(a.mapping) is MappingProxyType
+        assert a.mapping == MappingProxyType(mapping)
+
+    def test_reverse_mapping(self):
+        # Simple case
+        ref = DocSpans("", [Span(1, 3)])
+        sys = DocSpans("", [Span(2, 4)])
+        mapping = {Span(1, 3): [Span(2, 4)]}
+        result = SpanAlignment(ref, sys, mapping).reverse_mapping
+        assert type(result) is MappingProxyType
+        assert result == MappingProxyType({Span(2, 4): [Span(1, 3)]})
+        # Multiple reference spans map to the same system span
+        ref = DocSpans("", [Span(1, 3), Span(4, 6)])
+        sys = DocSpans("", [Span(1, 6)])
+        many2one = {Span(1, 3): [Span(1, 6)], Span(4, 6): [Span(1, 6)]}
+        result = SpanAlignment(ref, sys, many2one).reverse_mapping
+        assert result == MappingProxyType({Span(1, 6): [Span(1, 3), Span(4, 6)]})
+        # Reference spans map to multiple system spans
+        one2many = {Span(1, 6): [Span(1, 3), Span(4, 6)]}
+        result = SpanAlignment(sys, ref, one2many).reverse_mapping
+        assert result == MappingProxyType(many2one)
