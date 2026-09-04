@@ -1,7 +1,12 @@
+from unittest.mock import Mock
+
 import pytest
 
 from spanerr.core import Span
 from spanerr.span_utils import (
+    ScoreLabelPair,
+    ScoreSpanPair,
+    composite_match_score,
     exact_match,
     min_overlap_factor,
     min_overlap_length,
@@ -74,3 +79,35 @@ def test_min_overlap_length(span_a, span_b, min_val, expected):
 def test_min_overlap_factor(span_a, span_b, min_val, expected):
     # Label sensitive
     assert min_overlap_factor(span_a, span_b, min_val) == expected
+
+
+@pytest.mark.parametrize(
+    "span_a,span_b,expected_default, expected_custom",
+    [
+        (Span(2, 4, "a"), Span(2, 4, "a"), 1, 1),
+        (Span(2, 4, "a"), Span(2, 4, "b"), 0, 0),
+        (Span(2, 4, "a"), Span(2, 4, "A"), 0, 1),
+        (Span(1, 4), Span(3, 5), 0.25, 0.25),
+        (Span(1, 4, "i"), Span(3, 5, "i"), 0.25, 0.25),
+        (Span(1, 4, "I"), Span(3, 5, "i"), 0, 0.25),
+        (Span(1, 4), Span(3, 5, "o"), 0, 0),
+        (Span(0, 2), Span(2, 4), 0, 0),
+        (Span(0, 2, "o"), Span(2, 4, "O"), 0, 0),
+    ],
+)
+def test_composite_match_score(span_a, span_b, expected_default, expected_custom):
+    mock_score_bounds = Mock(spec=ScoreSpanPair, side_effect=Span.jaccard)
+    # Default label scoring
+    assert composite_match_score(span_a, span_b, mock_score_bounds) == expected_default
+    mock_score_bounds.assert_called_once_with(span_a, span_b)
+    # Custom label scoring
+    mock_score_bounds.reset_mock()
+    mock_score_label = Mock(
+        spec=ScoreLabelPair, side_effect=lambda a, b: a.lower() == b.lower()
+    )
+    result = composite_match_score(
+        span_a, span_b, mock_score_bounds, score_label=mock_score_label
+    )
+    assert result == expected_custom
+    mock_score_label.assert_called_once_with(span_a.label, span_b.label)
+    mock_score_bounds.assert_called_once_with(span_a, span_b)

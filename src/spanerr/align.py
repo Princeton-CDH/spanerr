@@ -10,13 +10,11 @@ These methods may require two function inputs:
 """
 
 from spanerr.core import (
-    CheckSpanPair,
     DocSpans,
-    ScoreSpanPair,
     Span,
     SpanAlignment,
 )
-from spanerr.span_utils import partial_overlap
+from spanerr.span_utils import CheckSpanPair, ScoreSpanPair, partial_overlap
 
 
 def select_first_match(

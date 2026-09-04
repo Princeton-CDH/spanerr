@@ -6,13 +6,15 @@ from spanerr.align import (
     select_first_match,
 )
 from spanerr.core import (
-    CheckSpanPair,
     DocSpans,
-    ScoreSpanPair,
     Span,
     SpanAlignment,
 )
-from spanerr.span_utils import partial_overlap
+from spanerr.span_utils import (
+    CheckSpanPair,
+    ScoreSpanPair,
+    partial_overlap,
+)
 
 
 def test_select_first_match():

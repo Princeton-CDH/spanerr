@@ -3,7 +3,7 @@ Core data types
 """
 
 from collections import defaultdict
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from copy import deepcopy
 from dataclasses import dataclass
 from functools import cached_property
@@ -234,8 +234,3 @@ class SpanAlignment:
             for sys_span in sys_spans:
                 rev_map[sys_span].append(ref_span)
         return MappingProxyType(rev_map)
-
-
-# Additional function types
-CheckSpanPair = Callable[[Span, Span], bool]
-ScoreSpanPair = Callable[[Span, Span], float]
