@@ -1,6 +1,9 @@
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
+
+import pytest
 
 from spanerr.align import (
+    construct_aligner,
     corppa_align,
     select_best_match,
     select_first_match,
@@ -181,3 +184,91 @@ def test_corppa_align():
     }
     result = corppa_align(ref, sys, is_match=Span.has_overlap)
     assert result == SpanAlignment(ref, expected_sys, expected_map)
+
+
+@patch("spanerr.align.corppa_align", autospec=True)
+@patch("spanerr.align.select_best_match", autospec=True)
+@patch("spanerr.align.select_first_match", autospec=True)
+def test_construct_aligner(mock_first, mock_best, mock_corppa):
+    # Unknown strategy
+    strategy = "other"
+    err_msg = "Unknown alignment strategy: other"
+    with pytest.raises(ValueError, match=err_msg):
+        construct_aligner(strategy)
+    # select_first
+    strategy = "select_first"
+    ## Missing is_match parameter
+    err_msg = "Strategy select_first requires is_match parameter"
+    with pytest.raises(ValueError, match=err_msg):
+        construct_aligner(strategy)
+    ## Includes extra score_match parameter
+    err_msg = "Strategy select_first does not use score_match parameter"
+    with pytest.raises(ValueError, match=err_msg):
+        construct_aligner(strategy, is_match="test", score_match="score")
+    ## Default
+    aligner = construct_aligner(strategy, is_match="test")
+    assert callable(aligner)
+    _ = aligner("ref_span", "sys_span")
+    mock_first.assert_called_once_with("ref_span", "sys_span", "test")
+    ## Set optional exclusive flag
+    mock_first.reset_mock()
+    aligner = construct_aligner(strategy, is_match="test", exclusive="flag")
+    assert callable(aligner)
+    _ = aligner("ref_span", "sys_span")
+    mock_first.assert_called_once_with("ref_span", "sys_span", "test", exclusive="flag")
+    # select_best
+    strategy = "select_best"
+    ## Missing required input parameters
+    err_msg = "Strategy select_best requires is_match and score_match parameters"
+    with pytest.raises(ValueError, match=err_msg):
+        construct_aligner(strategy)
+    with pytest.raises(ValueError, match=err_msg):
+        construct_aligner(strategy, is_match="test")
+    with pytest.raises(ValueError, match=err_msg):
+        construct_aligner(strategy, score_match="score")
+    ## Default
+    aligner = construct_aligner(strategy, is_match="test", score_match="score")
+    assert callable(aligner)
+    _ = aligner("ref_span", "sys_span")
+    mock_best.assert_called_once_with("ref_span", "sys_span", "test", "score")
+    ## Set optional exclusive flag
+    mock_best.reset_mock()
+    aligner = construct_aligner(
+        strategy, is_match="test", score_match="score", exclusive="flag"
+    )
+    assert callable(aligner)
+    _ = aligner("ref_span", "sys_span")
+    mock_best.assert_called_once_with(
+        "ref_span", "sys_span", "test", "score", exclusive="flag"
+    )
+    # corppa
+    strategy = "corppa"
+    ## Includes extra exclusive parameter
+    err_msg = "Strategy corppa does not use exclusive parameter"
+    with pytest.raises(ValueError, match=err_msg):
+        construct_aligner(strategy, exclusive="flag")
+    ## Default
+    aligner = construct_aligner(strategy)
+    assert callable(aligner)
+    _ = aligner("ref_span", "sys_span")
+    mock_corppa.assert_called_once_with("ref_span", "sys_span")
+    ## Set optional is_match parameter
+    mock_corppa.reset_mock()
+    aligner = construct_aligner(strategy, is_match="test")
+    assert callable(aligner)
+    _ = aligner("ref_span", "sys_span")
+    mock_corppa.assert_called_once_with("ref_span", "sys_span", is_match="test")
+    ## Set optional score_match parameter
+    mock_corppa.reset_mock()
+    aligner = construct_aligner(strategy, score_match="score")
+    assert callable(aligner)
+    _ = aligner("ref_span", "sys_span")
+    mock_corppa.assert_called_once_with("ref_span", "sys_span", score_match="score")
+    ## Set both optional parameters
+    mock_corppa.reset_mock()
+    aligner = construct_aligner(strategy, is_match="test", score_match="score")
+    assert callable(aligner)
+    _ = aligner("ref_span", "sys_span")
+    mock_corppa.assert_called_once_with(
+        "ref_span", "sys_span", is_match="test", score_match="score"
+    )
