@@ -121,12 +121,12 @@ class DocSpans:
     """
 
     doc_id: str
-    _spans: list[Span]  # meant to be immutable
+    _spans: tuple[Span]  # use tuple for immutability
 
     def __init__(self, doc_id: str, spans: Iterable[Span]):
         object.__setattr__(self, "doc_id", doc_id)
         # Ensure spans are a sorted copy of input
-        object.__setattr__(self, "_spans", sorted(spans))
+        object.__setattr__(self, "_spans", tuple(sorted(spans)))
 
     @classmethod
     def from_dict(cls, doc_dict: dict) -> Self:
@@ -149,7 +149,7 @@ class DocSpans:
         """
         Returns copy of span annotations
         """
-        return self._spans.copy()
+        return list(self._spans)
 
     def aggregate(self, concat: bool = False) -> Self:
         """
