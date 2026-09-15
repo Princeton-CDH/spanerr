@@ -89,31 +89,6 @@ def test_get_scorer(mock_relevance, mock_composite):
         assert mock_relevance.call_args.kwargs == {"partial_weight": 0.5}
 
 
-@pytest.fixture
-def ref_jsonl(tmp_path):
-    """
-    Create temporary reference span annotations file copied from test_data/ref.jsonl
-    """
-    test_dir = Path(__file__).resolve().parent
-    ref_jsonl = test_dir / "test_data" / "ref.jsonl"
-    tmp_ref = tmp_path / "mock_ref.jsonl"
-    tmp_ref.write_bytes(ref_jsonl.read_bytes())
-    return tmp_ref
-
-
-@pytest.fixture
-def sys_jsonl(tmp_path):
-    """
-    Create temporary reference span annotations file copied from test_data/sys.jsonl
-    """
-    test_dir = Path(__file__).resolve().parent
-    sys_jsonl = test_dir / "test_data" / "sys.jsonl"
-    # Create tmp system spans files
-    tmp_sys = tmp_path / "mock_sys.jsonl"
-    tmp_sys.write_bytes(sys_jsonl.read_bytes())
-    return tmp_sys
-
-
 # Mocking SpanAlignment since the objects are not hashable
 @patch("spanerr.compute_metrics.SpanAlignment", autospec=True)
 def test_get_span_alignments(mock_alignment, tmp_path):
