@@ -191,6 +191,8 @@ class DocSpans:
 class SpanAlignment:
     """
     Alignment object for two sets of span annotations over a shared document.
+
+    Note: Designed to be immutable, but is not hashable because of mapping field (dict).
     """
 
     ref: DocSpans
