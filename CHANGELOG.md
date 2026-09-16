@@ -8,7 +8,7 @@ Initial alpha release.
 
 - Add `Span` object to represent a span annotation
 - Add `DocSpans` object to represent a set of span annotations for a document
-- Add library `span_utils` of methods for comparing `Span` objects (i.e., matching, scoring)
+- Add library `span_utils` of methods for matching and scoring `Span` objects 
 
 ### Alignment Logic
 
