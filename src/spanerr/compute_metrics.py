@@ -186,7 +186,7 @@ def compute_entity_metrics(
         if show_progress:
             tqdm.write(
                 f"  * {a.ref.doc_id}: relevance = {rel_score:.4g} | "
-                f"{n_ref_spans} ref spans| {n_sys_spans} sys spans"
+                f"{n_ref_spans} ref spans | {n_sys_spans} sys spans"
             )
         total_relevance += rel_score
         total_sys_spans += n_sys_spans
