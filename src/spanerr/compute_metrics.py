@@ -120,8 +120,8 @@ def get_span_alignments(
 
     # Read in system annotations
     sys_annos = {}
-    for sys_json in orjsonl.stream(sys_file):
-        anno = DocSpans.from_dict(sys_json)  # ty: ignore[invalid-argument-type]
+    for sys_dict in orjsonl.stream(sys_file):
+        anno = DocSpans.from_dict(sys_dict)  # ty: ignore[invalid-argument-type]
         doc_id = anno.doc_id
         # Validate system annotations by checking for duplicate doc ids
         if doc_id in sys_annos:
