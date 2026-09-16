@@ -9,14 +9,17 @@ These methods may require two function inputs:
       numeric score (float). It's used to measure the quality of a match.
 """
 
+from collections.abc import Callable
+
 from spanerr.core import (
-    CheckSpanPair,
     DocSpans,
-    ScoreSpanPair,
     Span,
     SpanAlignment,
 )
-from spanerr.spans.match import partial_overlap
+from spanerr.span_utils import CheckSpanPair, ScoreSpanPair, partial_overlap
+
+# Custom function type
+AlignSpans = Callable[[DocSpans, DocSpans], SpanAlignment]
 
 
 def select_first_match(
@@ -122,3 +125,69 @@ def corppa_align(
                 final_mapping[ref_span] = [sub_span]
     final_sys = DocSpans(sys.doc_id, final_sys_spans)
     return SpanAlignment(init_align.ref, final_sys, final_mapping)
+
+
+def construct_aligner(
+    strategy: str,
+    is_match: CheckSpanPair | None = None,
+    score_match: ScoreSpanPair | None = None,
+    exclusive: bool | None = None,
+) -> AlignSpans:
+    """
+    Construct a span alignment method (AlignSpans) using a given alignment strategy
+    and accompanying parameters.
+
+    Currently supports the following strategies:
+        - select_first: corresponds to select_first_match
+        - select_best: corresponds to select_best_match
+        - corppa: corresponds to corppa_align
+    """
+    match strategy:
+        case "select_first":
+            # Validate input parameters
+            if is_match is None:
+                raise ValueError(f"Strategy {strategy} requires is_match parameter")
+            if score_match is not None:
+                raise ValueError(
+                    f"Strategy {strategy} does not use score_match parameter"
+                )
+            # Construct aligner
+            if exclusive is None:
+                return lambda r, s: select_first_match(r, s, is_match)
+            else:
+                return lambda r, s: select_first_match(
+                    r, s, is_match, exclusive=exclusive
+                )
+        case "select_best":
+            # Validate input parameters
+            if is_match is None or score_match is None:
+                raise ValueError(
+                    f"Strategy {strategy} requires is_match and score_match parameters"
+                )
+            # Construct aligner
+            if exclusive is None:
+                return lambda r, s: select_best_match(r, s, is_match, score_match)
+            else:
+                return lambda r, s: select_best_match(
+                    r, s, is_match, score_match, exclusive=exclusive
+                )
+
+        case "corppa":
+            # Validate input parameters
+            if exclusive is not None:
+                raise ValueError(
+                    f"Strategy {strategy} does not use exclusive parameter"
+                )
+            # Construct aligner
+            if is_match is not None and score_match is not None:
+                return lambda r, s: corppa_align(
+                    r, s, is_match=is_match, score_match=score_match
+                )
+            elif is_match is not None:
+                return lambda r, s: corppa_align(r, s, is_match=is_match)
+            elif score_match is not None:
+                return lambda r, s: corppa_align(r, s, score_match=score_match)
+            else:
+                return lambda r, s: corppa_align(r, s)
+        case _:
+            raise ValueError(f"Unknown alignment strategy: {strategy}")

@@ -238,7 +238,7 @@ class TestDocSpans:
         spans = d.spans
         spans.append(Span(7, 11))
         assert spans == [Span(1, 3), Span(7, 11)]
-        assert d._spans == [Span(1, 3)]  # check attribute unmodified
+        assert d._spans == (Span(1, 3),)  # check attribute unmodified
         assert d.spans == [Span(1, 3)]  # check view unmodified
 
     def test_aggregate(self):
