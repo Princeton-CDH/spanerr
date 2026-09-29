@@ -334,6 +334,38 @@ def test_compute_entity_metrics(mock_precision, mock_recall, mock_fscore):
     mock_fscore.assert_called_once_with(0.5, "p", "r")
 
 
+@patch("spanerr.compute_metrics.f_beta", autospec=True, return_value="f")
+@patch("spanerr.compute_metrics.recall", autospec=True, return_value="r")
+@patch("spanerr.compute_metrics.precision", autospec=True, return_value="p")
+def test_compute_entity_metrics_save_intmd(
+    mock_precision, mock_recall, mock_fscore, tmp_path
+):
+    intmd_results = tmp_path / "intmd_results.csv"
+
+    mock_scorer = Mock(autospec=ScoreAlignment, side_effect=[1, 0.2, 0.3])
+    alignments = [
+        SpanAlignment(DocSpans("a", []), DocSpans("a", []), {}),
+        SpanAlignment(
+            DocSpans("b", [Span(1, 2), Span(3, 4)]), DocSpans("b", [Span(4, 5)]), {}
+        ),
+        SpanAlignment(
+            DocSpans("c", [Span(6, 7)]),
+            DocSpans("c", [Span(7, 8), Span(8, 9), Span(9, 10)]),
+            {},
+        ),
+    ]
+    expected_lines = [
+        "doc_id,n_ref,n_sys,relevance",
+        "a,0,0,1",
+        f"b,2,1,{0.2}",
+        f"c,1,3,{0.3}",
+    ]
+    _ = compute_entity_metrics(
+        alignments, mock_scorer, save_intmd=intmd_results, show_progress=False
+    )
+    assert intmd_results.read_text() == "\n".join(expected_lines) + "\n"
+
+
 @patch("spanerr.compute_metrics.f_beta", autospec=True)
 @patch("spanerr.compute_metrics.recall", autospec=True)
 @patch("spanerr.compute_metrics.precision", autospec=True)
@@ -411,6 +443,41 @@ def test_document_entity_metrics(mock_precision, mock_recall, mock_fscore):
     )
 
 
+@patch("spanerr.compute_metrics.f_beta", autospec=True)
+@patch("spanerr.compute_metrics.recall", autospec=True)
+@patch("spanerr.compute_metrics.precision", autospec=True)
+def test_compute_document_metrics_save_intmd(
+    mock_precision, mock_recall, mock_fscore, tmp_path
+):
+    intmd_results = tmp_path / "intmd_results.csv"
+
+    mock_scorer = Mock(autospec=ScoreAlignment, side_effect=[1, 0.2, 0.3])
+    mock_precision.side_effect = [0.1, 0.2, 0.3]
+    mock_recall.side_effect = [0.4, 0.5, 0.6]
+    mock_fscore.side_effect = [0, 1, 0.5]
+    alignments = [
+        SpanAlignment(DocSpans("a", []), DocSpans("a", []), {}),
+        SpanAlignment(
+            DocSpans("b", [Span(1, 2), Span(3, 4)]), DocSpans("b", [Span(4, 5)]), {}
+        ),
+        SpanAlignment(
+            DocSpans("c", [Span(6, 7)]),
+            DocSpans("c", [Span(7, 8), Span(8, 9), Span(9, 10)]),
+            {},
+        ),
+    ]
+    expected_lines = [
+        "doc_id,n_ref,n_sys,relevance,precision,recall,f-1",
+        f"a,0,0,1,{0.1},{0.4},0",
+        f"b,2,1,{0.2},{0.2},{0.5},1",
+        f"c,1,3,{0.3},{0.3},{0.6},{0.5}",
+    ]
+    _ = compute_document_metrics(
+        alignments, mock_scorer, save_intmd=intmd_results, show_progress=False
+    )
+    assert intmd_results.read_text() == "\n".join(expected_lines) + "\n"
+
+
 @patch(
     "spanerr.compute_metrics.compute_document_metrics",
     autospec=True,
@@ -440,7 +507,7 @@ def test_compute_macro_metrics(mock_alignments, mock_entity_metrics, mock_doc_me
     assert result == "entity metrics"
     mock_alignments.assert_called_once_with("ref", "sys", "aligner", binarize=False)
     mock_entity_metrics.assert_called_once_with(
-        "alignments", "scorer", beta=1, show_progress=True
+        "alignments", "scorer", beta=1, save_intmd=None, show_progress=True
     )
     mock_doc_metrics.assert_not_called()
     ## Setting optional parameters
@@ -454,11 +521,12 @@ def test_compute_macro_metrics(mock_alignments, mock_entity_metrics, mock_doc_me
         "scorer",
         beta="float",
         binarize="flag",
+        save_intmd="path",
         show_progress="bool",
     )
     mock_alignments.assert_called_once_with("ref", "sys", "aligner", binarize="flag")
     mock_entity_metrics.assert_called_once_with(
-        "alignments", "scorer", beta="float", show_progress="bool"
+        "alignments", "scorer", beta="float", save_intmd="path", show_progress="bool"
     )
     mock_doc_metrics.assert_not_called()
 
@@ -469,7 +537,7 @@ def test_compute_macro_metrics(mock_alignments, mock_entity_metrics, mock_doc_me
     assert result == "doc metrics"
     mock_alignments.assert_called_once_with("ref", "sys", "aligner", binarize=False)
     mock_doc_metrics.assert_called_once_with(
-        "alignments", "scorer", beta=1, show_progress=True
+        "alignments", "scorer", beta=1, save_intmd=None, show_progress=True
     )
     mock_entity_metrics.assert_not_called()
     ## Setting optional parameters
@@ -482,11 +550,13 @@ def test_compute_macro_metrics(mock_alignments, mock_entity_metrics, mock_doc_me
         "aligner",
         "scorer",
         beta="float",
+        binarize="flag",
+        save_intmd="path",
         show_progress="bool",
     )
-    mock_alignments.assert_called_once_with("ref", "sys", "aligner", binarize=False)
+    mock_alignments.assert_called_once_with("ref", "sys", "aligner", binarize="flag")
     mock_doc_metrics.assert_called_once_with(
-        "alignments", "scorer", beta="float", show_progress="bool"
+        "alignments", "scorer", beta="float", save_intmd="path", show_progress="bool"
     )
     mock_entity_metrics.assert_not_called()
 
@@ -512,7 +582,7 @@ def test_compute_macro_metrics(mock_alignments, mock_entity_metrics, mock_doc_me
                     "select_first",
                     "overlap_factor",
                 ],
-                {"binarize": False, "show_progress": True},
+                {"binarize": False, "save_intmd": None, "show_progress": True},
             ),
         ],
         # set binary flag
@@ -522,7 +592,7 @@ def test_compute_macro_metrics(mock_alignments, mock_entity_metrics, mock_doc_me
                 "ref.jsonl",
                 "sys.jsonl",
                 "document",
-                "select_best",
+                "corppa",
                 "jaccard",
                 "--binary",
             ],
@@ -531,10 +601,10 @@ def test_compute_macro_metrics(mock_alignments, mock_entity_metrics, mock_doc_me
                     Path("ref.jsonl"),
                     Path("sys.jsonl"),
                     "document",
-                    "select_best",
+                    "corppa",
                     "jaccard",
                 ],
-                {"binarize": True, "show_progress": True},
+                {"binarize": True, "save_intmd": None, "show_progress": True},
             ),
         ],
         # disable progress
@@ -556,7 +626,7 @@ def test_compute_macro_metrics(mock_alignments, mock_entity_metrics, mock_doc_me
                     "select_best",
                     "jaccard",
                 ],
-                {"binarize": False, "show_progress": False},
+                {"binarize": False, "save_intmd": None, "show_progress": False},
             ),
         ],
     ],
@@ -593,3 +663,48 @@ def test_main(mock_metrics, mock_aligner, mock_scorer, cli_args, call_params, ca
         )
         progress_pfx = "\n" if kwargs["show_progress"] else ""
         assert captured.out == f"{progress_pfx}{expected_reporting}\n"
+
+
+@patch("spanerr.compute_metrics.get_scorer", return_value="scorer")
+@patch("spanerr.compute_metrics.get_aligner", return_value="aligner")
+@patch("spanerr.compute_metrics.compute_macro_metrics")
+def test_main_save_intmd(mock_metrics, mock_aligner, mock_scorer, capsys, tmp_path):
+    mock_metrics.return_value = {
+        "n_docs": 0,
+        "precision": 0.1,
+        "recall": 0.1,
+        "f-score": 0.1,
+    }
+    intmd_file = tmp_path / "intmd_results.csv"
+    cli_args = [
+        "compute_metrics.py",
+        "ref.jsonl",
+        "sys.jsonl",
+        "document",
+        "select_best",
+        "jaccard",
+        "--save-intermediate",
+        str(intmd_file),
+    ]
+
+    # Save intermediate results (specified file does not exist)
+    ## patch in test args for argpars to parse
+    with patch("sys.argv", cli_args):
+        main()
+        mock_aligner.assert_called_once_with("select_best")
+        mock_scorer.assert_called_once_with("jaccard")
+        # Swap final args for the expected return values (based on patching)
+        args = [Path("ref.jsonl"), Path("sys.jsonl"), "document", "aligner", "scorer"]
+        kwargs = {"binarize": False, "save_intmd": intmd_file, "show_progress": True}
+        mock_metrics.assert_called_once_with(*args, **kwargs)
+
+    # Raises ValueError if file already exists
+    intmd_file.write_text("some text")
+    with patch("sys.argv", cli_args):
+        with pytest.raises(SystemExit) as execinfo:
+            main()
+        assert execinfo.value.code == 1
+    captured = capsys.readouterr()
+    assert captured.err.startswith(
+        f"Intermediate results file {intmd_file} already exists"
+    )

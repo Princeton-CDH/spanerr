@@ -31,6 +31,9 @@ Example usage:
 """
 
 import argparse
+import csv
+import os
+import sys
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
@@ -163,6 +166,7 @@ def compute_entity_metrics(
     alignments: Iterator[SpanAlignment],
     scorer: ScoreAlignment,
     beta: float = 1,
+    save_intmd: Path | None = None,
     show_progress: bool = True,
 ) -> dict[str, float]:
     """
@@ -183,19 +187,37 @@ def compute_entity_metrics(
     total_sys_spans = 0
     total_ref_spans = 0
     progress = tqdm(alignments, desc="Scoring alignments", disable=not show_progress)
-    for a in progress:
-        n_docs += 1
-        rel_score = scorer(a)
-        n_sys_spans = len(a.sys.spans)
-        n_ref_spans = len(a.ref.spans)
-        if show_progress:
-            tqdm.write(
-                f"  * {a.ref.doc_id}: relevance = {rel_score:.4g} | "
-                f"{n_ref_spans} ref spans | {n_sys_spans} sys spans"
-            )
-        total_relevance += rel_score
-        total_sys_spans += n_sys_spans
-        total_ref_spans += n_ref_spans
+    # Set intermediate results path to os.devnull when unset for type checking
+    intmd_path = save_intmd if save_intmd else Path(os.devnull)
+    with intmd_path.open(mode="w", newline="") as intmd_file:
+        # Optionally set up intermdiate results CSV
+        if save_intmd:
+            fields = ["doc_id", "n_ref", "n_sys", "relevance"]
+            intmd_writer = csv.DictWriter(intmd_file, fields)
+            intmd_writer.writeheader()
+        for a in progress:
+            n_docs += 1
+            rel_score = scorer(a)
+            n_sys_spans = len(a.sys.spans)
+            n_ref_spans = len(a.ref.spans)
+            # Optionally save intermediate results
+            if save_intmd:
+                intmd_writer.writerow(
+                    {
+                        "doc_id": a.ref.doc_id,
+                        "n_ref": n_ref_spans,
+                        "n_sys": n_sys_spans,
+                        "relevance": rel_score,
+                    }
+                )
+            if show_progress:
+                tqdm.write(
+                    f"  * {a.ref.doc_id}: relevance = {rel_score:.4g} | "
+                    f"{n_ref_spans} ref spans | {n_sys_spans} sys spans"
+                )
+            total_relevance += rel_score
+            total_sys_spans += n_sys_spans
+            total_ref_spans += n_ref_spans
     # Raise error if iterator contains no alignments
     if n_docs == 0:
         raise ValueError("Found no alignments to score")
@@ -215,6 +237,7 @@ def compute_document_metrics(
     alignments: Iterator[SpanAlignment],
     scorer: ScoreAlignment,
     beta: float = 1,
+    save_intmd: Path | None = None,
     show_progress: bool = True,
 ) -> dict[str, float]:
     """
@@ -235,22 +258,55 @@ def compute_document_metrics(
     cumulative_recall = 0
     cumulative_fscore = 0
     progress = tqdm(alignments, desc="Scoring alignments", disable=not show_progress)
-    for a in progress:
-        n_docs += 1
-        relevance = scorer(a)
-        # Compute and accumulate precision and recall
-        doc_precision = precision(len(a.sys.spans), relevance)
-        doc_recall = recall(len(a.ref.spans), relevance)
-        doc_fscore = f_beta(beta, doc_precision, doc_recall)
-        if show_progress:
-            tqdm.write(
-                f"  * {a.ref.doc_id}: precision = {doc_precision:.4g} | "
-                f"recall = {doc_recall:.4g} | F-{beta} = {doc_fscore:.4g}"
-            )
-        # Add to running totals
-        cumulative_precision += doc_precision
-        cumulative_recall += doc_recall
-        cumulative_fscore += doc_fscore
+    # Set intermediate results path to os.devnull when unset for type checking
+    intmd_path = save_intmd if save_intmd else Path(os.devnull)
+    with intmd_path.open(mode="w", newline="") as intmd_file:
+        # Optionally set up intermdiate results CSV
+        if save_intmd:
+            fields = [
+                "doc_id",
+                "n_ref",
+                "n_sys",
+                "relevance",
+                "precision",
+                "recall",
+                f"f-{beta}",
+            ]
+            intmd_writer = csv.DictWriter(intmd_file, fields)
+            intmd_writer.writeheader()
+
+        for a in progress:
+            n_docs += 1
+            relevance = scorer(a)
+            n_sys_spans = len(a.sys.spans)
+            n_ref_spans = len(a.ref.spans)
+            # Compute and accumulate precision and recall
+            doc_precision = precision(n_sys_spans, relevance)
+            doc_recall = recall(n_ref_spans, relevance)
+            doc_fscore = f_beta(beta, doc_precision, doc_recall)
+            # Optionally save intermediate results
+            if save_intmd:
+                intmd_writer.writerow(
+                    {
+                        "doc_id": a.ref.doc_id,
+                        "n_ref": n_ref_spans,
+                        "n_sys": n_sys_spans,
+                        "relevance": relevance,
+                        "precision": doc_precision,
+                        "recall": doc_recall,
+                        f"f-{beta}": doc_fscore,
+                    }
+                )
+            if show_progress:
+                tqdm.write(
+                    f"  * {a.ref.doc_id}: precision = {doc_precision:.4g} | "
+                    f"recall = {doc_recall:.4g} | F-{beta} = {doc_fscore:.4g}"
+                )
+            # Add to running totals
+            cumulative_precision += doc_precision
+            cumulative_recall += doc_recall
+            cumulative_fscore += doc_fscore
+
     # Raise error if iterator contains no alignments
     if n_docs == 0:
         raise ValueError("Found no alignments to score")
@@ -274,6 +330,7 @@ def compute_macro_metrics(
     scorer: ScoreAlignment,
     beta: float = 1,
     binarize: bool = False,
+    save_intmd: Path | None = None,
     show_progress: bool = True,
 ) -> dict[str, float]:
     """
@@ -292,11 +349,19 @@ def compute_macro_metrics(
     match macro_level:
         case "entity":
             return compute_entity_metrics(
-                alignments, scorer, beta=beta, show_progress=show_progress
+                alignments,
+                scorer,
+                beta=beta,
+                save_intmd=save_intmd,
+                show_progress=show_progress,
             )
         case "document":
             return compute_document_metrics(
-                alignments, scorer, beta=beta, show_progress=show_progress
+                alignments,
+                scorer,
+                beta=beta,
+                save_intmd=save_intmd,
+                show_progress=show_progress,
             )
         case _:
             raise ValueError(f"Unsupported macro level: {macro_level}")
@@ -343,12 +408,27 @@ def main():
         action="store_true",
     )
     parser.add_argument(
+        "--save-intermediate",
+        help="Filename where intermediate (document-level) results should be written (CSV file)",
+        type=Path,
+    )
+    parser.add_argument(
         "--progress",
         help="Show progress",
         action=argparse.BooleanOptionalAction,
         default=True,
     )
     args = parser.parse_args()
+
+    # Validate intermediate results file if specified
+    intmd_file = args.save_intermediate
+    if intmd_file and intmd_file.is_file():
+        print(
+            f"Intermediate results file {intmd_file} already exists. Not overwriting.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     # Compute aggregated evaluation metrics
     results = compute_macro_metrics(
         args.ref_jsonl,
@@ -357,6 +437,7 @@ def main():
         get_aligner(args.alignment_method),
         get_scorer(args.scoring_method),
         binarize=args.binary,
+        save_intmd=intmd_file,
         show_progress=args.progress,
     )
     if args.progress:
