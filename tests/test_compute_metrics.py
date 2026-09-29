@@ -222,6 +222,33 @@ def test_get_span_alignments(mock_alignment, tmp_path):
     mock_aligner.assert_called_once_with(ref_docspans[1], sys_docspans[1])
     mock_alignment.assert_not_called()
 
+    # Binarize labels
+    mock_aligner.reset_mock()
+    mock_alignment.reset_mock()
+    ref_labeled_lines = [
+        '{"doc_id":"a","spans":[{"start":1,"end":2,"label":"a"}]}',
+        '{"doc_id":"b","spans":[{"start":3,"end":4,"label":"b"}]}',
+    ]
+    sys_labeled_lines = [
+        '{"doc_id":"a","spans":[{"start":4,"end":5,"label":"c"}]}',
+        '{"doc_id":"b","spans":[{"start":6,"end":7,"label":"d"}]}',
+    ]
+    ref_labeled_jsonl = tmp_path / "ref_labeled.jsonl"
+    sys_labeled_jsonl = tmp_path / "sys_labeled.jsonl"
+    ref_labeled_jsonl.write_text("\n".join(ref_labeled_lines) + "\n")
+    sys_labeled_jsonl.write_text("\n".join(sys_labeled_lines) + "\n")
+    ref_docspans = [DocSpans.from_dict(json.loads(l)).binarize() for l in ref_lines]
+    sys_docspans = [DocSpans.from_dict(json.loads(l)).binarize() for l in sys_lines]
+    result = get_span_alignments(ref_jsonl, sys_jsonl, mock_aligner, binarize=True)
+    assert set(result) == {"a", "b"}
+    assert mock_aligner.call_count == 2
+    expected_calls = [
+        call(ref_docspans[0], sys_docspans[0].binarize()),
+        call(ref_docspans[1], sys_docspans[1].binarize()),
+    ]
+    mock_aligner.assert_has_calls(expected_calls, any_order=True)
+    mock_alignment.assert_not_called()
+
 
 @pytest.mark.parametrize(
     "jsonl_text,dup_id",
@@ -403,7 +430,7 @@ def test_compute_macro_metrics(mock_alignments, mock_entity_metrics, mock_doc_me
     # Unknown macro level
     with pytest.raises(ValueError, match="Unsupported macro level: unknown"):
         compute_macro_metrics("ref", "sys", "unknown", "aligner", "scorer")
-    mock_alignments.assert_called_once_with("ref", "sys", "aligner")
+    mock_alignments.assert_called_once_with("ref", "sys", "aligner", binarize=False)
     mock_entity_metrics.assert_not_called()
     mock_doc_metrics.assert_not_called()
 
@@ -411,7 +438,7 @@ def test_compute_macro_metrics(mock_alignments, mock_entity_metrics, mock_doc_me
     mock_alignments.reset_mock()
     result = compute_macro_metrics("ref", "sys", "entity", "aligner", "scorer")
     assert result == "entity metrics"
-    mock_alignments.assert_called_once_with("ref", "sys", "aligner")
+    mock_alignments.assert_called_once_with("ref", "sys", "aligner", binarize=False)
     mock_entity_metrics.assert_called_once_with(
         "alignments", "scorer", beta=1, show_progress=True
     )
@@ -420,9 +447,16 @@ def test_compute_macro_metrics(mock_alignments, mock_entity_metrics, mock_doc_me
     mock_alignments.reset_mock()
     mock_entity_metrics.reset_mock()
     assert compute_macro_metrics(
-        "ref", "sys", "entity", "aligner", "scorer", beta="float", show_progress="bool"
+        "ref",
+        "sys",
+        "entity",
+        "aligner",
+        "scorer",
+        beta="float",
+        binarize="flag",
+        show_progress="bool",
     )
-    mock_alignments.assert_called_once_with("ref", "sys", "aligner")
+    mock_alignments.assert_called_once_with("ref", "sys", "aligner", binarize="flag")
     mock_entity_metrics.assert_called_once_with(
         "alignments", "scorer", beta="float", show_progress="bool"
     )
@@ -433,7 +467,7 @@ def test_compute_macro_metrics(mock_alignments, mock_entity_metrics, mock_doc_me
     mock_entity_metrics.reset_mock()
     result = compute_macro_metrics("ref", "sys", "document", "aligner", "scorer")
     assert result == "doc metrics"
-    mock_alignments.assert_called_once_with("ref", "sys", "aligner")
+    mock_alignments.assert_called_once_with("ref", "sys", "aligner", binarize=False)
     mock_doc_metrics.assert_called_once_with(
         "alignments", "scorer", beta=1, show_progress=True
     )
@@ -450,7 +484,7 @@ def test_compute_macro_metrics(mock_alignments, mock_entity_metrics, mock_doc_me
         beta="float",
         show_progress="bool",
     )
-    mock_alignments.assert_called_once_with("ref", "sys", "aligner")
+    mock_alignments.assert_called_once_with("ref", "sys", "aligner", binarize=False)
     mock_doc_metrics.assert_called_once_with(
         "alignments", "scorer", beta="float", show_progress="bool"
     )
@@ -460,7 +494,7 @@ def test_compute_macro_metrics(mock_alignments, mock_entity_metrics, mock_doc_me
 @pytest.mark.parametrize(
     "cli_args,call_params",
     [
-        # all required params, default progress behavior
+        # all required params, with defaults for optional
         [
             [
                 "compute_metrics.py",
@@ -478,7 +512,29 @@ def test_compute_macro_metrics(mock_alignments, mock_entity_metrics, mock_doc_me
                     "select_first",
                     "overlap_factor",
                 ],
-                {"show_progress": True},
+                {"binarize": False, "show_progress": True},
+            ),
+        ],
+        # set binary flag
+        [
+            [
+                "compute_metrics.py",
+                "ref.jsonl",
+                "sys.jsonl",
+                "document",
+                "select_best",
+                "jaccard",
+                "--binary",
+            ],
+            (
+                [
+                    Path("ref.jsonl"),
+                    Path("sys.jsonl"),
+                    "document",
+                    "select_best",
+                    "jaccard",
+                ],
+                {"binarize": True, "show_progress": True},
             ),
         ],
         # disable progress
@@ -500,7 +556,7 @@ def test_compute_macro_metrics(mock_alignments, mock_entity_metrics, mock_doc_me
                     "select_best",
                     "jaccard",
                 ],
-                {"show_progress": False},
+                {"binarize": False, "show_progress": False},
             ),
         ],
     ],
