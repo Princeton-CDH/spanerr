@@ -106,6 +106,7 @@ def get_span_alignments(
     sys_file: Path,
     aligner: AlignSpans,
     ignore_unmatched: bool = False,
+    binarize: bool = False,
 ) -> Iterator[SpanAlignment]:
     """
     Yields document-level span alignments given two sets of span annotations (JSONL).
@@ -122,6 +123,8 @@ def get_span_alignments(
     sys_annos = {}
     for sys_dict in orjsonl.stream(sys_file):
         anno = DocSpans.from_dict(sys_dict)  # ty: ignore[invalid-argument-type]
+        if binarize:
+            anno = anno.binarize()
         doc_id = anno.doc_id
         # Validate system annotations by checking for duplicate doc ids
         if doc_id in sys_annos:
@@ -132,6 +135,8 @@ def get_span_alignments(
     ref_doc_ids = set()  # for tracking encountered reference doc ids
     for ref_json in orjsonl.stream(ref_file):
         ref_anno = DocSpans.from_dict(ref_json)  # ty: ignore[invalid-argument-type]
+        if binarize:
+            ref_anno = ref_anno.binarize()
         doc_id = ref_anno.doc_id
         # Validate reference annotations by checking for duplicate doc ids
         if doc_id in ref_doc_ids:
@@ -268,6 +273,7 @@ def compute_macro_metrics(
     aligner: AlignSpans,
     scorer: ScoreAlignment,
     beta: float = 1,
+    binarize: bool = False,
     show_progress: bool = True,
 ) -> dict[str, float]:
     """
@@ -281,7 +287,7 @@ def compute_macro_metrics(
         - macro F-score: float
     """
     # Step 1: Span Alignments
-    alignments = get_span_alignments(ref_jsonl, sys_jsonl, aligner)
+    alignments = get_span_alignments(ref_jsonl, sys_jsonl, aligner, binarize=binarize)
     # Step 2: Compute macro metrics
     match macro_level:
         case "entity":
@@ -332,6 +338,11 @@ def main():
     )
     # Optional arguments
     parser.add_argument(
+        "--binary",
+        help='Collapse labels into single "True" label',
+        action="store_true",
+    )
+    parser.add_argument(
         "--progress",
         help="Show progress",
         action=argparse.BooleanOptionalAction,
@@ -345,6 +356,7 @@ def main():
         args.macro_level,
         get_aligner(args.alignment_method),
         get_scorer(args.scoring_method),
+        binarize=args.binary,
         show_progress=args.progress,
     )
     if args.progress:
