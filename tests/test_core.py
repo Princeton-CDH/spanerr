@@ -152,6 +152,10 @@ class TestSpan:
         span_b = Span(2, 8)
         assert span_a.overlap_factor(span_b) == 3 / 6
 
+    def test_relabel(self):
+        assert Span(1, 4, "label").relabel("new") == Span(1, 4, "new")
+        assert Span(3, 5).relabel("other") == Span(3, 5, "other")
+
     def test_binarize(self):
         assert Span(1, 4, "label").binarize() == Span(1, 4, "")
         assert Span(3, 5).binarize() == Span(3, 5)
