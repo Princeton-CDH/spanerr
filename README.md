@@ -22,7 +22,7 @@ pip install git+https://github.com/Princeton-CDH/spanerr.git#egg=spanerr
 
 - `Span`: An individual span annotation.
 - `DocSpans`: A set of span annotations for a document.
-- `SpanAlignment`: An alignment between two sets of span annotations (reference, system) over a shared document.
+- `SpanAlignment`: A set of aligned span annotations (reference, system) within a single document.
 
 #### Loading from dictionaries
 
