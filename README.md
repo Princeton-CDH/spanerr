@@ -1,6 +1,11 @@
 # spanerr
 
-Python library for evaluating span annotations using custom alignment and scoring strategies.
+`spanerr` is a Python library for evaluating span-level text annotations using customizable alignment and scoring strategies.
+`spanerr` operates explicitly over span text boundaries (i.e., text indices) rather than over the annotated text itself.
+
+Many span-level annotation tasks diverge significantly enough from named-entity recognition (e.g., long text spans, large label set) that the typical formulations for the evaluation metrics of precision, recall, and $F_1$ scores become insuitable.
+`spanerr` addresses this issue by not only supporting customized scoring of (partial) span matches, but also customizing how the spans within document-level annotation sets are aligned for evaluation.
+`spanerr` is designed for maximal flexibility generally leaving it to the user to determine what assumptions and restrictions are required in their use case.
 
 [![unit tests](https://github.com/Princeton-CDH/spanerr/actions/workflows/unit-tests.yml/badge.svg)](https://github.com/Princeton-CDH/spanerr/actions/workflows/unit-tests.yml)
 [![codecov](https://codecov.io/gh/Princeton-CDH/spanerr/graph/badge.svg?token=Wd3vZ38Bxz)](https://codecov.io/gh/Princeton-CDH/spanerr)
@@ -18,18 +23,25 @@ pip install git+https://github.com/Princeton-CDH/spanerr.git#egg=spanerr
 
 ### Core Data Types
 
-`spanerr` has three core data types (see `spanerr.core` for more details).
+`spanerr` has three first-class objects:
 
 - `Span`: An individual span annotation.
 - `DocSpans`: A set of span annotations for a document.
 - `SpanAlignment`: A set of aligned span annotations (reference, system) within a single document.
 
+All three of these data types are immutable, but `SpanAlignment` does not currently support hashing.
+
+#### Binarization
+
+`spanerr` provides functionality for "removing" span labels from `Span` and `DocSpans` by setting them to a default label (empty string).
+For `DocSpans`, overlapping spans will be merged and optionally neighboring spans can be merged.
+
 #### Loading from dictionaries
 
 `Spans` can be loaded from dictionaries with the following fields:
 
-- `start` (int): starting text boundary (inclusive)
-- `end` (int): ending text boundary (exclusive)
+- `start` (int): starting text index (inclusive)
+- `end` (int): ending text index (exclusive)
 - `label` (str): optional span label (defaults to empty string)
 
 `DocSpans` can be loaded from dictionaries with the following fields:
@@ -50,11 +62,14 @@ The idea is to allow for the creation of whatever alignment is useful for scorin
 
 The following alignment strategies are provided in `spanerr.align`:
 
-- Select First : Select the first matching system span for each reference span
-- Select Best : Select the best matching system span for each reference span
-- Corppa : The alignment strategy used by [`corppa`](https://github.com/Princeton-CDH/corppa) (see `corppa`'s [evaluation documentation](https://github.com/Princeton-CDH/corppa/tree/main/src/corppa/poetry_detection/evaluation) for more detail)
+- Select First : Select the first matching system span for each reference span.
+  By default, spans match if they overlap and the same label.
+- Select Best : Select the best matching system span for each reference span.
+  By default, spans match if they overlap and the same label, the best match is the match with the highest jaccard similarity.
+- Corppa : The alignment strategy used by [`corppa`](https://github.com/Princeton-CDH/corppa).
+  See `corppa`'s [evaluation documentation](https://github.com/Princeton-CDH/corppa/tree/main/src/corppa/poetry_detection/evaluation) for more detail.
 
-For additional flexibility, alignment strategies might take additional inputs, but these will generally need to be set to a specific value (e.g., via a lambda function) before they can be used within `spanerr`'s evaluation workflow.
+For additional flexibility, alignment strategies may take additional inputs to further customize their behavior (e.g., use different span matching and span scoring strategies), but these will generally need to be set to a specific value (e.g., via a lambda function) before they can be used within `spanerr`'s evaluation workflow.
 See the `spanerr.align.construct_aligner` for an example.
 
 ### Scoring Aligmnents
