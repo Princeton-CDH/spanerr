@@ -62,8 +62,8 @@ The idea is to allow for the creation of whatever alignment is useful for scorin
 
 The following alignment strategies are provided in `spanerr.align`:
 
-- Select First : Select the first matching system span for each reference span.
-  By default, spans match if they overlap and the same label.
+- Select First : Select the first (sequential) matching system span for each reference span.
+  By default, spans match if they overlap and have the same label.
 - Select Best : Select the best matching system span for each reference span.
   By default, given spans that overlap and have the same label, the best match is the span pair with the highest jaccard similarity.
 - Corppa : The alignment strategy used by [`corppa`](https://github.com/Princeton-CDH/corppa).
