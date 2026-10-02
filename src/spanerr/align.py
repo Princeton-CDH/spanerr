@@ -25,13 +25,14 @@ AlignSpans = Callable[[DocSpans, DocSpans], SpanAlignment]
 def select_first_match(
     ref: DocSpans,
     sys: DocSpans,
-    is_match: CheckSpanPair,
+    is_match: CheckSpanPair = partial_overlap,
     exclusive: bool = True,
 ) -> SpanAlignment:
     """
     Builds a span alignment using a select first match strategy. Each reference
-    span is aligned with the first matching system span as determined by the provided
-    `is_match` method. By default, alignments are exclusive.
+    span is aligned with the first matching system span. By default, a match
+    corresponds to spans that overlap and have the same label. By default,
+    alignments are exclusive.
     """
     align_map = {}
     sys_span_pool = dict.fromkeys(sys.spans)
@@ -50,14 +51,16 @@ def select_first_match(
 def select_best_match(
     ref: DocSpans,
     sys: DocSpans,
-    is_match: CheckSpanPair,
-    score_match: ScoreSpanPair,
+    is_match: CheckSpanPair = partial_overlap,
+    score_match: ScoreSpanPair = Span.jaccard,
     exclusive: bool = True,
 ) -> SpanAlignment:
     """
     Builds a span alignment using a greedy select best match strategy. Each reference
-    span is aligned with its best matching system span as defined by the provided
-    `is_match` and `score_match` methods. By default, alignments are exclusive.
+    span is aligned with its best matching system span. By default, a match
+    corresponds to spans that overlap and have the same label and the best match
+    corresponds to the match with the highest jaccard similarity.
+    By default, alignments are exclusive.
     """
     mapping = {}
     sys_span_pool = dict.fromkeys(sys.spans)
@@ -142,52 +145,34 @@ def construct_aligner(
         - select_best: corresponds to select_best_match
         - corppa: corresponds to corppa_align
     """
+    ## Validate inputs and get alignment method
+    align_method = None
     match strategy:
         case "select_first":
             # Validate input parameters
-            if is_match is None:
-                raise ValueError(f"Strategy {strategy} requires is_match parameter")
             if score_match is not None:
                 raise ValueError(
                     f"Strategy {strategy} does not use score_match parameter"
                 )
-            # Construct aligner
-            if exclusive is None:
-                return lambda r, s: select_first_match(r, s, is_match)
-            else:
-                return lambda r, s: select_first_match(
-                    r, s, is_match, exclusive=exclusive
-                )
+            align_method = select_first_match
         case "select_best":
-            # Validate input parameters
-            if is_match is None or score_match is None:
-                raise ValueError(
-                    f"Strategy {strategy} requires is_match and score_match parameters"
-                )
-            # Construct aligner
-            if exclusive is None:
-                return lambda r, s: select_best_match(r, s, is_match, score_match)
-            else:
-                return lambda r, s: select_best_match(
-                    r, s, is_match, score_match, exclusive=exclusive
-                )
-
+            align_method = select_best_match
         case "corppa":
             # Validate input parameters
             if exclusive is not None:
                 raise ValueError(
                     f"Strategy {strategy} does not use exclusive parameter"
                 )
-            # Construct aligner
-            if is_match is not None and score_match is not None:
-                return lambda r, s: corppa_align(
-                    r, s, is_match=is_match, score_match=score_match
-                )
-            elif is_match is not None:
-                return lambda r, s: corppa_align(r, s, is_match=is_match)
-            elif score_match is not None:
-                return lambda r, s: corppa_align(r, s, score_match=score_match)
-            else:
-                return lambda r, s: corppa_align(r, s)
+            align_method = corppa_align
         case _:
             raise ValueError(f"Unknown alignment strategy: {strategy}")
+    # Determine optional args
+    options = {}
+    if is_match is not None:
+        options["is_match"] = is_match
+    if score_match is not None:
+        options["score_match"] = score_match
+    if exclusive is not None:
+        options["exclusive"] = exclusive
+    # Construct aligner
+    return lambda r, s: align_method(r, s, **options)  # ty: ignore[invalid-argument-type]

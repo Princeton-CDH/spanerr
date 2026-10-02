@@ -93,12 +93,18 @@ class Span:
         overlap = self.overlap_length(other)
         return overlap / max(len(self), len(other))
 
+    def relabel(self, label: str) -> Self:
+        """
+        Returns the relabeled version of this span.
+        """
+        return self.__class__(self.start, self.end, label)
+
     def binarize(self) -> Self:
         """
         Returns the "binarized" version of this span (i.e., sets label to default)
         """
         default_label = self.__class__.label
-        return self.__class__(self.start, self.end, default_label)
+        return self.relabel(default_label)
 
     def merge(self, other: Self) -> Self:
         """

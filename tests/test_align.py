@@ -197,41 +197,31 @@ def test_construct_aligner(mock_first, mock_best, mock_corppa):
         construct_aligner(strategy)
     # select_first
     strategy = "select_first"
-    ## Missing is_match parameter
-    err_msg = "Strategy select_first requires is_match parameter"
-    with pytest.raises(ValueError, match=err_msg):
-        construct_aligner(strategy)
     ## Includes extra score_match parameter
     err_msg = "Strategy select_first does not use score_match parameter"
     with pytest.raises(ValueError, match=err_msg):
         construct_aligner(strategy, is_match="test", score_match="score")
     ## Default
-    aligner = construct_aligner(strategy, is_match="test")
+    aligner = construct_aligner(strategy)
     assert callable(aligner)
     _ = aligner("ref_span", "sys_span")
-    mock_first.assert_called_once_with("ref_span", "sys_span", "test")
-    ## Set optional exclusive flag
+    mock_first.assert_called_once_with("ref_span", "sys_span")
+    ## Set optional args
     mock_first.reset_mock()
     aligner = construct_aligner(strategy, is_match="test", exclusive="flag")
     assert callable(aligner)
     _ = aligner("ref_span", "sys_span")
-    mock_first.assert_called_once_with("ref_span", "sys_span", "test", exclusive="flag")
+    mock_first.assert_called_once_with(
+        "ref_span", "sys_span", is_match="test", exclusive="flag"
+    )
     # select_best
     strategy = "select_best"
-    ## Missing required input parameters
-    err_msg = "Strategy select_best requires is_match and score_match parameters"
-    with pytest.raises(ValueError, match=err_msg):
-        construct_aligner(strategy)
-    with pytest.raises(ValueError, match=err_msg):
-        construct_aligner(strategy, is_match="test")
-    with pytest.raises(ValueError, match=err_msg):
-        construct_aligner(strategy, score_match="score")
     ## Default
     aligner = construct_aligner(strategy, is_match="test", score_match="score")
     assert callable(aligner)
     _ = aligner("ref_span", "sys_span")
     mock_best.assert_called_once_with("ref_span", "sys_span", "test", "score")
-    ## Set optional exclusive flag
+    ## Set optional args
     mock_best.reset_mock()
     aligner = construct_aligner(
         strategy, is_match="test", score_match="score", exclusive="flag"
@@ -239,7 +229,7 @@ def test_construct_aligner(mock_first, mock_best, mock_corppa):
     assert callable(aligner)
     _ = aligner("ref_span", "sys_span")
     mock_best.assert_called_once_with(
-        "ref_span", "sys_span", "test", "score", exclusive="flag"
+        "ref_span", "sys_span", is_match="test", score_match="score", exclusive="flag"
     )
     # corppa
     strategy = "corppa"
@@ -252,19 +242,7 @@ def test_construct_aligner(mock_first, mock_best, mock_corppa):
     assert callable(aligner)
     _ = aligner("ref_span", "sys_span")
     mock_corppa.assert_called_once_with("ref_span", "sys_span")
-    ## Set optional is_match parameter
-    mock_corppa.reset_mock()
-    aligner = construct_aligner(strategy, is_match="test")
-    assert callable(aligner)
-    _ = aligner("ref_span", "sys_span")
-    mock_corppa.assert_called_once_with("ref_span", "sys_span", is_match="test")
-    ## Set optional score_match parameter
-    mock_corppa.reset_mock()
-    aligner = construct_aligner(strategy, score_match="score")
-    assert callable(aligner)
-    _ = aligner("ref_span", "sys_span")
-    mock_corppa.assert_called_once_with("ref_span", "sys_span", score_match="score")
-    ## Set both optional parameters
+    ## Set optional args
     mock_corppa.reset_mock()
     aligner = construct_aligner(strategy, is_match="test", score_match="score")
     assert callable(aligner)
