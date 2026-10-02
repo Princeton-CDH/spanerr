@@ -14,11 +14,17 @@ Many span-level annotation tasks diverge significantly enough from named-entity 
 
 ### Installation
 
-Use pip to install as a Python package directly from GitHub.
-Use a branch or tag name, e.g. `@develop` or `@0.1.0` if you need to install a specific version
+Use pip to install the most recent release published to PyPI.
 
 ```sh
-pip install git+https://github.com/Princeton-CDH/spanerr.git#egg=spanerr
+pip install spanerr
+```
+
+Or, use pip to install `spanerr` as a Python package from GitHub.
+Use a branch or tag name, e.g. `@develop` or `@0.1.0` if you need to install a specific version.
+
+```sh
+pip install spanerrgit+https://github.com/Princeton-CDH/spanerr.git#egg=spanerr
 ```
 
 ### Core Data Types
