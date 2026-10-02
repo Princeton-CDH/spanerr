@@ -65,7 +65,7 @@ The following alignment strategies are provided in `spanerr.align`:
 - Select First : Select the first matching system span for each reference span.
   By default, spans match if they overlap and the same label.
 - Select Best : Select the best matching system span for each reference span.
-  By default, spans match if they overlap and the same label, the best match is the match with the highest jaccard similarity.
+  By default, given spans that overlap and have the same label, the best match is the span pair with the highest jaccard similarity.
 - Corppa : The alignment strategy used by [`corppa`](https://github.com/Princeton-CDH/corppa).
   See `corppa`'s [evaluation documentation](https://github.com/Princeton-CDH/corppa/tree/main/src/corppa/poetry_detection/evaluation) for more detail.
 
